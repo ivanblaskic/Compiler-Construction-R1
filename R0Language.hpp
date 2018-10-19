@@ -1,7 +1,9 @@
-// (program (+ 5 (let(x (+ 5 6)) (+ x 2)))) 
-// add (int(5),let(var(x),add(int(5),int(6)),add(var(x),int(2))))  --> add (int(5), let(var(x),int(11),add(var(x),int(2)))	--> list: (x, 11)  --> 
-// --> crucial step: add (int(5),add(add(5,6),2)) 
 /*
+
+	Ivan Blaskic [ @UML 4Jay's-CC-class ] 
+	R0Language.hpp
+	
+	(+ 5 (let(x (+ 5 6)) (+ x 2))) 
 
 	exp ::= int
 		  | (read)
@@ -11,52 +13,8 @@
 		  | (let ([var exp]) exp)
 	R1  ::= (program exp)
 
-	register ::= rsp
-			   | rbp
-			   | rax
-			   | rbx
-			   | rcx
-			   | rdx
-			   | rsi
-			   | rdi
-			   | r8
-			   | r9
-			   | r10
-			   | r11
-			   | r12
-			   | r13
-			   | r14
-			   | r15
-	arg   ::= (int int)
-			| (reg register)
-			| (deref register int)
-	instr ::= (addq arg arg)
-			| (subq arg arg)
-			| (movq arg arg)
-			| (retq)
-			| (negq arg)
-			| (callq label)
-			| (pushq arg)
-			| (popq arg)
-	X860  ::= (program int instr+)
-
-	arg  ::= int | var
-	exp  ::= arg | (read) | (-arg)
-		   | (+ arg arg)
-	stmt ::= (assign var exp)
-		   | (return arg)
-	C0   ::= (program (var*) stmt+)
-
-	uniquify:
-		- structurally recursive f-ion
-		  translating input AST into an
-		  output AST - traversing entire
-		  AST
-
-	flatten
-
 */
-// 
+ 
 
 #pragma once
 
@@ -71,30 +29,25 @@
 
 using namespace std;
 
-static list<pair<std::string, int>> list_vars;
-
-static int lookup(string var) {
-	std::list<pair<std::string, int>>::iterator it;
-	for (it = list_vars.begin(); it != list_vars.end(); ++it) {
-		if ((*it).first == var) return ((*it).second);
-	}
-	return 0;
-}
-
+// EXP
 class expR0 {
 
 public:
-	int virtual eval() = 0;
+
+	int virtual eval(list<pair<std::string, int>> *env) = 0;
 	virtual string toString() = 0;
+
 private:
 
 };
 
+
+// INT ( int )
 class intR0 : public expR0 {
 
 public:
 
-	int eval() {
+	int eval(list<pair<std::string, int>> *env) {
 		return this->val;
 	}
 
@@ -107,16 +60,19 @@ public:
 	}
 
 private:
+
 	int val;
 
 };
 
+
+// ( + exp exp )
 class addR0 : public expR0 {
 
 public:
 
-	int eval() {
-		return (this->l->eval() + this->r->eval());
+	int eval(list<pair<std::string, int>> *env) {
+		return (this->l->eval(env) + this->r->eval(env));
 	}
 
 	string toString() {
@@ -129,16 +85,19 @@ public:
 	}
 
 private:
+
 	expR0 *l, *r;
 
 };
 
+
+// - ( exp )
 class negR0 : public expR0 {
 
 public:
 
-	int eval() {
-		return (-this->val->eval());
+	int eval(list<pair<std::string, int>> *env) {
+		return (-this->val->eval(env));
 	}
 
 	string toString() {
@@ -155,13 +114,15 @@ private:
 
 };
 
+
+// ( READ )
 class readR0 : public expR0 {
 
 public:
 	
 	readR0(void) { }
 	
-	int eval() {
+	int eval(list<pair<std::string, int>> *env) {
 		cout << "Input the value for read: ";
 		cin >> this->val;
 		return this->val;
@@ -177,6 +138,8 @@ private:
 	
 };
 
+
+// VAR ( string )
 class varR0 : public expR0 {
 
 public:
@@ -189,35 +152,24 @@ public:
 		return this->lab;
 	}
 
-	void setVal(int value) {
-		this->val = value;
-		if (lookup(this->lab) == 0) {
-			std::pair<std::string, int> new_value = std::make_pair(this->lab, this->val);
-			list_vars.push_back(new_value);
+	int eval(list<pair<std::string, int>> *env) {
+		std::list<pair<std::string, int>>::iterator it;
+		for (it = (*env).begin(); it != (*env).end(); ++it) {
+			if ((*it).first == this->lab) return ((*it).second);
 		}
-
-	}
-
-	int getVal() {
-		if (lookup(this->lab) != 0) {
-			return lookup(this->lab);
-		}
-		else {
-			cout << "Error trying to calculate with uninitialized variable: " << this->lab << ".";
-			return 0;
-		}
-	}
-
-	int eval() {
-		this->val = getVal();
-		return this->val;
+		cout << "- dealing with uninitialized variable -";
+		return 0;
 	}
 
 private:
+
 	string lab;
 	int val;
+
 };
 
+
+// LET ( [var, exp] exp )
 class letR0 : public expR0 {
 
 public:
@@ -228,19 +180,29 @@ public:
 		this->fn = fun;
 	}
 
-	int eval() {
-		this->lab->setVal(this->vr_vl->eval());
-		return this->fn->eval();					
+	int eval(list<pair<std::string, int>> *env) {
+		list<pair<std::string, int>> *new_env = new list<pair<std::string, int>>();
+		*new_env = *env;
+		std::list<pair<std::string, int>>::iterator it;
+		for (it = (*new_env).begin(); it != (*new_env).end(); ++it) {
+			if ((*it).first == this->lab->toString()) {
+				((*it).second = this->vr_vl->eval(env));
+				return fn->eval(new_env);
+			}
+		}
+		(*new_env).push_back(std::make_pair(this->lab->toString(), this->vr_vl->eval(env)));
+		return fn->eval(new_env);		
 	}
 
 	string toString() {
-		return "(let (" + this->lab->toString() + " " + this->vr_vl->toString() + ")" + this->fn->toString() + ")";
+		return "(let [" + this->lab->toString() + " " + this->vr_vl->toString() + "]" + this->fn->toString() + ")";
 	}
 
 private:
 
 	varR0 *lab;
 	expR0 *vr_vl, *fn;
+
 };
 
 
