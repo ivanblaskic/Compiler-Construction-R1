@@ -60,7 +60,18 @@
 using namespace std;
 
 
-// register ::= rsp | rbp | rax | rbx | rcx | rdx | rsi | rdi | r8 | r9 | r10 | r11 | r12 | r13 | r14 | r15
+// stack implementation for registers: rsp | rbp
+struct Node {
+	int data;
+	Node *link;
+};
+
+//static Node *rbp = new Node();
+//static Node *rsp = new Node();
+static Node *top = NULL;
+
+
+// register ::= rax | rbx | rcx | rdx | rsi | rdi | r8 | r9 | r10 | r11 | r12 | r13 | r14 | r15
 static list<pair<std::string, int>> regs = {
 	std::make_pair("rax", 0),
 	std::make_pair("rbx", 0),
@@ -76,8 +87,8 @@ static list<pair<std::string, int>> regs = {
 	std::make_pair("r13", 0),
 	std::make_pair("r14", 0),
 	std::make_pair("r15", 0),
-	std::make_pair("rsp", 0),
-	std::make_pair("rbp", 0)
+	//std::make_pair("rsp", 0),
+	//std::make_pair("rbp", 0)
 };
 
 
@@ -139,11 +150,11 @@ public:
 
 	regX0(string name_) {
 		this->name = name_;
-		this->registers = &regs;
 		// this->value = getVal(lookupList(this->name));
 	}
 
 	int eval(list<pair<std::string, int>> *regs) {
+		this->registers = regs;
 		for (std::list<pair<std::string, int>>::iterator it = this->registers->begin(); it != this->registers->end(); ++it) {
 			if ((*it).first == this->name) {
 				this->setValue((*it).second);
@@ -176,33 +187,39 @@ private:
 
 
 /*
-// int (%reg)
+// int (%reg) <-- arg
 class intRegX0 : public argX0 {
 
 public:
 
-	intRegX0(int offset_, regX0 *reg_) {
+	intRegX0(int offset_, string name_) {
+		this->name = name_;
 		this->offset = offset_;
-		this->reg = reg_;
+		// this->value = getVal(lookupList(this->name));
 	}
 
-	int evaluate() {
-		return this->value;
+	int eval(list<pair<std::string, int>> *regs) {
+		this->registers = regs;
 	}
 
-	void writeValue() {
-		//...
+	void setValue(int value_) {
+		this->value = value_;
+	}
+
+	string getName() {
+		return this->name;
+		// setVal(this-> name, this->value);
 	}
 
 	string toString() {
-
+		return to_string(this->offset) + "(%" + this->name + ")";
 	}
 
 private:
 
+	int value, offset;
 	string name;
-	int offset, value;
-	regX0 *reg;
+	list<pair<std::string, int>> *registers;
 
 };
 */
@@ -214,18 +231,108 @@ class instrX0 {
 public:
 
 	virtual int eval(list<pair<std::string, int>> *regs) {
-
 		return 10;
-
 	}
 
 	virtual string toString() {
-
 		return "Error InstrX0 Class had to do Print.\n";
-
 	}
 
 private:
+
+};
+
+
+
+// (popq arg) <-- instruction
+class popqX0 : public instrX0 {
+
+public:
+
+	popqX0(argX0* dest_) {
+		this->dest = dest_;
+	}
+
+	bool isEmpty() {
+		if (top == NULL)
+			return true;
+		return false;
+	}
+
+	int pop(void) {
+		Node *tmp = top;
+		int value = top->data;
+		top = top->link;
+		delete (tmp);
+		return value;
+	}
+
+	int eval(list<pair<std::string, int>> *regs) {
+		this->registers = regs;
+		for (std::list<pair<std::string, int>>::iterator it = this->registers->begin(); it != this->registers->end(); ++it) {
+			if ((*it).first == this->dest->getName()) {
+				if (!isEmpty()) {
+					((*it).second = pop());
+				}
+				else {
+					cout << "\tStack is empty, there is nothing there to pop.\n";
+					return 8;
+				}
+				return 0;
+			}
+		}
+		cout << "\tError register name for arg in pop command:" << this->dest->getName() << "\n";
+		return 8;
+	}
+
+	string toString() {
+		return "\tpopq\t\t" + this->dest->toString() + "\n";
+	}
+
+private:
+
+	argX0 *dest;
+	list<pair<std::string, int>> *registers;
+
+};
+
+
+// (pushq arg) <-- instruction
+class pushqX0 : public instrX0 {
+
+public:
+
+	pushqX0(argX0* src_) {
+		this->src = src_;
+	}
+
+	void push(int value) {
+		Node *rsp = new Node();
+		rsp->data = value;
+		rsp->link = top;
+		top = rsp;
+	}
+
+	int eval(list<pair<std::string, int>> *regs) {
+		this->registers = regs;
+		for (std::list<pair<std::string, int>>::iterator it = this->registers->begin(); it != this->registers->end(); ++it) {
+			if ((*it).first == this->src->getName()) {
+				(push((*it).second));
+				return 0;
+			}
+		}
+		cout << "\tError register name for arg in push command:" << this->src->getName() << "\n";
+		return 7;
+	}
+
+	string toString() {
+		return "\tpushq\t\t" + this->src->toString() + "\n";
+	}
+
+private:
+
+	argX0 *src;
+	list<pair<std::string, int>> *registers;
 
 };
 
@@ -246,6 +353,7 @@ public:
 				return 0;
 			}
 		}
+		success = false;
 		return 6;
 	}
 
@@ -444,8 +552,8 @@ public:
 	void execute(list<pair<std::string, int>> *registers_) {
 		this->registers = registers_;
 		cout << "\nProgram:\n\n";
-		for (std::list<std::unique_ptr<instrX0>>::iterator it = this->instructions_set->begin(); it != this->instructions_set->end(); ++it) {
-			if ((*it)->eval(registers) == 0) {
+		for (list<std::unique_ptr<instrX0>>::iterator it = this->instructions_set->begin(); it != this->instructions_set->end(); ++it) {
+			if ((*it)->eval(this->registers) == 0) {
 				cout << pcnt << "\t" << (*it)->toString();
 				pcnt += 8;
 			}
@@ -456,8 +564,8 @@ public:
 		}
 		pcnt = 0;
 		cout << "\n\tExecution is done.\n\n" << "\nMemory:\n\n" << "\tRegister\tValue\n";
-		for (std::list<pair<std::string, int>>::iterator it = registers->begin(); it != registers->end(); ++it) {
-			cout << "\t" << (*it).first << "\t\t" << (*it).second << "\n";
+		for (list<pair<std::string, int>>::iterator it = this->registers->begin(); it != this->registers->end(); ++it) {
+			cout << "\t" << (*it).first << "\t\t" << to_string((*it).second) << "\n";
 		}
 		cout << "\n";
 	}

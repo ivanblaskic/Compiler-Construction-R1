@@ -12,6 +12,7 @@
 	3) Does my retq have to change the PC value?
 
 */
+
 #include <stdlib.h>
 
 #include "X0Language.hpp"
@@ -37,6 +38,7 @@ int main(void) {
 
 	// program tester initialization
 	list<std::unique_ptr<instrX0>> prog_tester;
+	pcnt = 0;
 
 	prog_tester.emplace_back(new movqX0(new intX0(10), new regX0("rax")));
 	prog_tester.emplace_back(new movqX0(new regX0("rax"), new regX0("rbx")));
@@ -44,17 +46,16 @@ int main(void) {
 	prog_tester.emplace_back(new addqX0(new regX0("rbx"), new regX0("rax")));
 	prog_tester.emplace_back(new subqX0(new intX0(100), new regX0("rax")));
 	prog_tester.emplace_back(new subqX0(new regX0("rax"), new regX0("rbx")));
-	prog_tester.emplace_back(new retqX0());
+	//prog_tester.emplace_back(new retqX0());
 	prog_tester.emplace_back(new negqX0(new regX0("rbx")));
 	prog_tester.emplace_back(new callqX0());
+	prog_tester.emplace_back(new pushqX0(new regX0("rax")));
+	prog_tester.emplace_back(new popqX0(new regX0("rbx")));
 
 	programX0 *x0_tester = new programX0(&prog_tester);
 
 	// program tester execution
 	x0_tester->execute(&regs);
-
-	list<pair<std::string, int>> *ptr_register_list = &regs;
-
 
 	/*
 	// instructions execution test
