@@ -50,12 +50,18 @@ int main() {
 													new intR0(6), 
 													new varR0("x")), 
 										  new varR0("x")));
-	//cout << program4->toString() << " = " << program4->eval(code) << "\n\n";
 	
-	//system("pause");
+	cout << "\n\t" << program4->toString() << " = " << program4->eval(code) << "\n\n";
+	
+	system("pause");
 
 	expR0 *program3 = program4->uniquify(map_vars);
-	cout << program3->toString() << " = " << program3->eval(code) << "\n\n";
+	cout << "\n\t" << program3->toString() << " = " << program3->eval(code) << "\n\n";
+
+	system("pause");
+
+	if (program3->eval(code) == program4->eval(code))
+		cout << "\n\tCompiler Uniquifying Variable Names is a Beast Bro.\n\n";
 
 	system("pause");
 

@@ -103,7 +103,6 @@ public:
 		for (it = (*map).begin(); it != (*map).end(); ++it) {
 			if ((*it).first->toString() == this->toString()) {				
 				this->setString((*it).second->toString());
-				system("pause");
 				return this;
 			}
 		}
@@ -281,11 +280,11 @@ public:
 						(*it1).second = unique_ptr<varR0>(new_variable);				// change it's matching var to new_variable
 					}
 				}
-				return new letR0(new_variable, this->vr_vl->uniquify(new_map), this->fn->uniquify(new_map));	//return let with new mapping
+				return new letR0(new varR0(new_variable->toString()), this->vr_vl->uniquify(new_map), this->fn->uniquify(new_map));	//return let with new mapping
 			}
 		}																						// if that's not the case enter pair in mapping
 		(*map).emplace_back(std::make_pair(unique_ptr<varR0>(new varR0(this->lab->toString())), unique_ptr<varR0>(new_variable)));
-		return new letR0(new_variable, this->vr_vl->uniquify(map), this->fn->uniquify(map));	// return regular mapping with let
+		return new letR0(new varR0(new_variable->toString()), this->vr_vl->uniquify(map), this->fn->uniquify(map));	// return regular mapping with let
 		this->lab = new_variable;
 	}
 
