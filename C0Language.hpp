@@ -16,6 +16,17 @@
 
 	C0   ::= (program (var*) stmt+)
 
+	C Code: progC0 
+		- receives list of stmts initialized in main
+		- executes in a way that it receives all variables necessary for execution
+			- goes statement by statement
+				- evaluates sharing list of variables
+
+	R --> C:	flatten in the deepest node 
+					--> creates new list of statements and variables when returning 
+				flatten in operation node
+					--> adds new statement to existing set of statements received from arguments
+
 */
 
 #pragma once
@@ -304,6 +315,35 @@ public:
 		this->stmts = stmts_;
 	}
 
+	// called from deepest node returns newly initialized program C0 with return variable
+	progC0(varC0 *var_) {
+		this->stmts = new list<std::unique_ptr<stmtC0>>();
+		this->vars = new list<pair<string, int>>{ (make_pair(var_->toString(), 0)) };
+		this->ret_arg = var_;
+	}
+
+	progC0() {
+		this->stmts = new list<std::unique_ptr<stmtC0>>();
+		this->vars = new list<pair<string, int>>();
+	}
+
+	// called from deepest node returns newly initialized program C0 with return value of int
+	progC0(intC0 *int_) {
+		this->stmts = new list<std::unique_ptr<stmtC0>>();
+		this->vars = new list<pair<string, int>>();
+		this->ret_arg = int_;
+	}
+
+	// called after flattening arguments in operations so we have program with assignment statements that happened in them
+	progC0(expC0 *exp_,varC0 *var_, progC0 *merging_one_, progC0 *merging_two_) {
+		this->stmts = merging_one_->stmts;
+		this->stmts->emplace_back(merging_two_->stmts);
+		this->vars = merging_one_->vars;
+		this->vars->emplace_back(merging_two_->vars);
+		this->stmts->emplace_back(new assignC0(var_, exp_));
+		this->ret_arg = var_;
+	}
+
 	void execute(list<pair<string, int>> *vars_) {
 		this->vars = vars_;
 		cout << "\nProgram:\n\n";
@@ -322,10 +362,15 @@ public:
 		cout << "\n";
 	}
 
+	argC0* ret_argument(void) {
+		return this->ret_arg;
+	}
+
 private:
 
 	list<pair<string, int>> *vars;
 	list<std::unique_ptr<stmtC0>> *stmts;
+	argC0 *ret_arg;
 
 };
 

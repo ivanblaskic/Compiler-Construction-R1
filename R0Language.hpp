@@ -14,6 +14,49 @@
 
 	R1  ::= (program exp)
 
+	Uniquify Function: 
+					(+ 5 (let (x (+ 5 6)) (+ x 2))) --> (+ 5 [ let (x_0 (+ 5 6)) (+ x_0 2) ])
+	
+	Flatten Function: 
+					return	- 1) newly flattened expression 
+							- 2) list of assignment statements (one for each introduced) 
+							- 3) list of all variables including let-bound variables and generated temporary variables
+
+					--> we can have static variables and statements lists
+						--> those lists will be adjusted directly through flatten - do uniquify before
+							--> then the we interpret flattened program with interpreter for C0
+
+					+,- case: (program (+ 52 (-10))) --> [program (tmp.1 tmp.2)				
+															(assign tmp.1	(-10))
+															(assign tmp.2	(+ 52 tmp.1))
+															(return tmp.2)]
+
+					--> we reach first plus which is the last assignment statement also it's result is returned
+						--> calling flatten on those two pluses
+							--> integer is initialized as C0 integer ant returned to calling assignment statement
+							--> minus - or potentially plus operation - is new assignment statement 
+								--> calling flatten on those two operands 
+
+					let case: (program (let [x (+ [-10] 11)] (+ x 41))) --> [program (tmp.1 x tmp.2) 
+																				(assign tmp.1	(-10))
+																				(assign x		(+ tmp.1 11))
+																				(assign tmp.2	(+ x 41))
+																				(return tmp.2)]
+
+					--> we reach first let which does the following
+						--> returns the result of flattening expression on right
+							--> does flatten of that right expression assigning value to temporary values
+								--> assigns the value of flattening expression on left to variable in let
+									--> does flatten of that left expression assigning value to temporary values
+
+					--> when enters add or neg instantly initiate new variable
+						--> static int tmp_cnt;
+						--> int tmp_cnt ++;
+						--> string tmp_name = "tmp." + to_string(tmp_cnt); 
+						--> varR0 var = new VarR0(tmp_name);
+
+					int, read, var case: simply create C0 program returning it
+
 */
  
 
@@ -28,11 +71,12 @@
 #include <list>
 #include <algorithm>
 #include <memory>
+#include "C0Language.hpp"
 
 using namespace std;
 
 static int cnt = 0;
-
+static int tmp_cnt = 0;
 
 class varR0;
 
@@ -45,6 +89,7 @@ public:
 	int virtual eval(list<pair<std::string, int>> *env) = 0;
 	virtual string toString() = 0;
 	virtual expR0* uniquify(list<pair<unique_ptr<varR0>, unique_ptr<varR0>>> *mapp) = 0;
+	virtual progC0* flatten() = 0;
 
 private:
 
@@ -110,6 +155,10 @@ public:
 		return this;
 	}
 
+	progC0* flatten() {
+		return new progC0(new varC0(this->lab));
+	}
+
 private:
 
 	list<pair<unique_ptr<varR0>, unique_ptr<varR0>>> *map;
@@ -138,6 +187,10 @@ public:
 
 	virtual expR0* uniquify(list<pair<unique_ptr<varR0>, unique_ptr<varR0>>> *mapp) {
 		return this;
+	}
+
+	progC0* flatten() {
+		return new progC0(new intC0(this->val));
 	}
 
 private:
@@ -170,6 +223,15 @@ public:
 		return new addR0(this->left->uniquify(map), this->right->uniquify(map));
 	}
 
+	progC0* flatten() {
+		tmp_cnt++;
+		varC0 *tmp_var = new varC0("tmp." + to_string(tmp_cnt));
+		progC0 *LF = left->flatten();										// flattening arg1 
+		progC0 *RF = right->flatten();										// flattening arg2 
+		addC0 *ADD_OP = new addC0(LF->ret_argument(), RF->ret_argument());
+		return new progC0(ADD_OP, tmp_var, LF, RF);
+	}
+
 private:
 
 	expR0 *left, *right;
@@ -200,6 +262,14 @@ public:
 		return new negR0(this->val->uniquify(map));
 	}
 
+	progC0* flatten() {
+		tmp_cnt++;
+		varC0 *tmp_var = new varC0("tmp." + to_string(tmp_cnt));
+		progC0 *F = val->flatten();										// flattening arg 
+		negC0 *NEG_OP = new negC0(F->ret_argument());
+		return new progC0(NEG_OP, tmp_var, F, new progC0());
+	}
+
 private:
 
 	expR0 *val;
@@ -228,6 +298,8 @@ public:
 	virtual expR0* uniquify(list<pair<unique_ptr<varR0>, unique_ptr<varR0>>> *mapp) {
 		return this;
 	}
+
+	progC0* flatten() {}
 
 private:
 	
@@ -287,6 +359,8 @@ public:
 		return new letR0(new varR0(new_variable->toString()), this->vr_vl->uniquify(map), this->fn->uniquify(map));	// return regular mapping with let
 		this->lab = new_variable;
 	}
+
+	progC0* flatten() {}
 
 private:
 	
