@@ -49,6 +49,11 @@
 								--> assigns the value of flattening expression on left to variable in let
 									--> does flatten of that left expression assigning value to temporary values
 
+					- make new variable - with the given name
+						- create new temp var
+						- do flatten on left-hand side expressions - assign it's value to variable
+							- do flatten on right-hand side expression - return arg 
+
 					--> when enters add or neg instantly initiate new variable
 						--> static int tmp_cnt;
 						--> int tmp_cnt ++;
@@ -71,6 +76,7 @@
 #include <list>
 #include <algorithm>
 #include <memory>
+
 #include "C0Language.hpp"
 
 using namespace std;
@@ -81,7 +87,7 @@ static int tmp_cnt = 0;
 class varR0;
 
 
-// EXP
+// EXP --> flatten DONE
 class expR0 {
 
 public:
@@ -96,7 +102,7 @@ private:
 };
 
 
-// VAR ( string )
+// VAR ( string ) --> flatten DONE
 class varR0 : public expR0 {
 
 public:
@@ -168,7 +174,7 @@ private:
 };
 
 
-// INT ( int )
+// INT ( int ) --> flatten DONE
 class intR0 : public expR0 {
 
 public:
@@ -200,7 +206,7 @@ private:
 };
 
 
-// ( + exp exp )
+// ( + exp exp ) --> flatten DONE
 class addR0 : public expR0 {
 
 public:
@@ -240,7 +246,7 @@ private:
 };
 
 
-// - ( exp )
+// - ( exp ) --> flatten DONE
 class negR0 : public expR0 {
 
 public:
@@ -278,7 +284,7 @@ private:
 };
 
 
-// ( READ )
+// ( READ ) --> flatten
 class readR0 : public expR0 {
 
 public:
@@ -308,7 +314,7 @@ private:
 };
 
 
-// LET ( [var, exp] exp )
+// LET ( [var, exp] exp ) --> flatten DONE
 class letR0 : public expR0 {
 
 public:
@@ -360,7 +366,18 @@ public:
 		this->lab = new_variable;
 	}
 
-	progC0* flatten() {}
+	progC0* flatten() {
+		tmp_cnt++;
+		varC0 *tmp_var = new varC0("tmp." + to_string(tmp_cnt));
+
+		varC0 *let_var = new varC0(this->lab->toString());
+		progC0 *vr_vl_prog = vr_vl->flatten();
+		progC0 *ass_var = new progC0(vr_vl_prog->ret_argument(), let_var, vr_vl_prog);
+		
+		progC0 *fn_prog = fn->flatten();
+		return new progC0(fn_prog->ret_argument(), tmp_var, fn_prog);
+
+	}
 
 private:
 	

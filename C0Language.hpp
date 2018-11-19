@@ -334,6 +334,13 @@ public:
 		this->ret_arg = int_;
 	}
 
+	progC0(argC0 *ass_arg, varC0 *var_, progC0 *prog_) {
+		this->stmts = prog_->stmts;
+		this->vars = prog_->vars;
+		this->stmts->emplace_back(new assignC0(var_, ass_arg));
+		this->ret_arg = var_;
+	}
+
 	// called after flattening arguments in operations so we have program with assignment statements that happened in them
 	progC0(expC0 *exp_,varC0 *var_, progC0 *merging_one_, progC0 *merging_two_) {
 		this->stmts = merging_one_->stmts;
@@ -342,6 +349,25 @@ public:
 		this->vars->emplace_back(merging_two_->vars);
 		this->stmts->emplace_back(new assignC0(var_, exp_));
 		this->ret_arg = var_;
+	}
+
+	void execute() {
+		cout << "\nProgram:\n\n";
+		for (std::list<std::unique_ptr<stmtC0>>::iterator it = this->stmts->begin(); it != this->stmts->end(); ++it) {
+			if ((*it)->eval(this->vars) == 0) {
+				cout << "\t" << (*it)->toString();
+			}
+			else {
+				cout << "\n\tError executing program.\n\tCheck statement: " << (*it)->toString() << "\n";
+			}
+		}
+		stmtC0 *ret_var = new retC0(this->ret_argument());
+		cout << "\t" << ret_var->toString();
+		cout << "\n\tExecution is done.\n\n" << "\nMemory:\n\n" << "\tVariable\tValue\n";
+		for (std::list<pair<std::string, int>>::iterator it = this->vars->begin(); it != this->vars->end(); ++it) {
+			cout << "\t" << (*it).first << "\t\t" << (*it).second << "\n";
+		}
+		cout << "\n";
 	}
 
 	void execute(list<pair<string, int>> *vars_) {
@@ -355,6 +381,8 @@ public:
 				cout << "\n\tError executing program.\n\tCheck statement: " << (*it)->toString() << "\n";
 			}
 		}
+		stmtC0 *ret_var = new retC0(this->ret_argument());
+		cout << "\t" << ret_var->toString();
 		cout << "\n\tExecution is done.\n\n" << "\nMemory:\n\n" << "\tVariable\tValue\n";
 		for (std::list<pair<std::string, int>>::iterator it = vars->begin(); it != vars->end(); ++it) {
 			cout << "\t" << (*it).first << "\t\t" << (*it).second << "\n";

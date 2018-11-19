@@ -58,16 +58,13 @@ int main() {
 	
 	system("pause");
 
-	expR0 *program3 = program4->uniquify(map_vars);
+	expR0 *program3 = program1->uniquify(map_vars);
 	cout << "\n\t" << program3->toString() << " = " << program3->eval(code) << "\n\n";
 
 	//stmtC0 *assign_int2var = new assignC0(new varC0("y"), new intC0(5)); --> want this as an result
 
-	static list<std::unique_ptr<stmtC0>> program_tester;
-	static list<pair<std::string, int>> variables;
-
-	progC0 *program5 = program1->flatten();
-	program5->execute(&variables);
+	progC0 *program5 = program3->flatten();
+	program5->execute();
 
 	// add execution of the code in C0 and R0
 
